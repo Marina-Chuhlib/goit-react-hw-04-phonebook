@@ -1,59 +1,60 @@
-import { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import shortid from 'shortid';
 
 import ContactForm from './ContactForm/ContactForm';
 import ContactsList from './ContactsList/ContactsList';
 import Filter from './Filter/Filter';
 
+import contactsList from './contacts';
+
 import css from './App.module.css';
 
-class App extends Component {
-  state = {
-    contacts: [
-      { id: 'id-1', name: 'Rosie Simpson', number: '459-12-56' },
-      { id: 'id-2', name: 'Hermione Kline', number: '443-89-12' },
-      { id: 'id-3', name: 'Eden Clements', number: '645-17-79' },
-      { id: 'id-4', name: 'Annie Copeland', number: '227-91-26' },
-    ],
-    filter: '',
+const App = () => {
+  const [contacts, setContacts] = useState(() => {
+    const contacts = JSON.parse(localStorage.getItem('my-contacts'));
+    return contacts ? contacts : [...contactsList];
+  });
+  const [filter, setFilter] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('my-contacts', JSON.stringify(contacts));
+  }, [contacts]);
+
+  const isDuplicate = name => {
+    const normalized = name.toLowerCase();
+    const result = contacts.find(({ name }) => {
+      return normalized === name.toLowerCase();
+    });
+
+    return Boolean(result);
   };
 
-  componentDidMount() {
-    const contacts = JSON.parse(localStorage.getItem('my-contacts'));
-
-    if (contacts?.length) {
-      this.setState({ contacts });
+  const addContact = ({ name, number }) => {
+    if (isDuplicate(name)) {
+      alert(`${name} is already in contacts`);
+      return false;
     }
-  }
 
-  componentDidUpdate(prevProps, prevState) {
-    const { contacts } = this.state;
+    setContacts(prevContacts => {
+      const newContact = {
+        id: shortid.generate(),
+        name,
+        number,
+      };
 
-    if (prevState.contacts !== contacts) {
-      localStorage.setItem('my-contacts', JSON.stringify(contacts));
-    }
-  }
+      return [newContact, ...prevContacts];
+    });
 
-  addContact = ({ name, number }) => {
-    const contact = {
-      id: shortid.generate(),
-      name,
-      number,
-    };
+    return true;
+  };
 
-    this.setState(({ contacts }) =>
-      contacts.find(
-        contacts => contacts.name.toLowerCase() === contact.name.toLowerCase()
-      )
-        ? alert(`${contact.name} is already in contacts`)
-        : {
-            contacts: [contact, ...contacts],
-          }
+  const deleteContact = id => {
+    setContacts(prevContacts =>
+      prevContacts.filter(contact => contact.id !== id)
     );
   };
 
-  getVisibleContacts = () => {
-    const { contacts, filter } = this.state;
+  const getVisibleContacts = () => {
     const normalizedFilter = filter.toLowerCase();
 
     return contacts.filter(contact =>
@@ -61,37 +62,30 @@ class App extends Component {
     );
   };
 
-  handleFilter = e => {
-    this.setState({ filter: e.currentTarget.value });
+  const handleFilter = e => {
+    setFilter(e.currentTarget.value);
   };
 
-  deleteContact = contactId => {
-    this.setState(({ contacts }) => ({
-      contacts: contacts.filter(contact => contact.id !== contactId),
-    }));
-  };
+  const visibleContacts = getVisibleContacts();
+  const isContacts = Boolean(visibleContacts.length);
 
-  render() {
-    const { filter } = this.state;
-    const visibleContacts = this.getVisibleContacts();
-    const isContacts = Boolean(visibleContacts.length);
+  return (
+    <div className={css.wrapper}>
+      <h2>Phonebook</h2>
+      <ContactForm onSubmit={addContact} />
 
-    return (
-      <div className={css.wrapper}>
-        <h2>Phonebook</h2>
-        <ContactForm onSubmit={this.addContact} />
+      <h2>Contacts</h2>
+      <Filter value={filter} onChange={handleFilter} />
 
-        <h2>Contacts</h2>
-        <Filter value={filter} onChange={this.handleFilter} />
-
+      {isContacts && (
         <ContactsList
           contacts={visibleContacts}
-          deleteContact={this.deleteContact}
+          deleteContact={deleteContact}
         />
-        {!isContacts && <p className={css.text}>No contacts in list</p>}
-      </div>
-    );
-  }
-}
+      )}
+      {!isContacts && <p className={css.text}>No contacts in list</p>}
+    </div>
+  );
+};
 
 export default App;
